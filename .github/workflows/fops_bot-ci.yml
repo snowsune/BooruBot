@@ -1,4 +1,4 @@
-name: FOPS Bot CI
+name: Booru Bot CI
 
 on:
   push:
@@ -22,14 +22,14 @@ jobs:
   #       with:
   #         fetch-depth: 1
   #     - name: Test the bot image
-  #       run: export TAG=main && docker compose -f docker-compose.yml run fops_bot test
+  #       run: export TAG=main && docker compose -f docker-compose.yml run boorubot test
   #     - name: Discord notification
   #       if: ${{ failure() }}
   #       env:
   #         DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
   #       uses: Ilshidur/action-discord@master
   #       with:
-  #         args: "FopsBot Pytest failed!"
+  #         args: "BooruBot Pytest failed!"
 
   formatblack:
     name: Black Formatter
@@ -90,7 +90,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-      - name: Extract Version information for fops_bot
+      - name: Extract Version information for boorubot
         id: extract_hash
         run: |
           echo BUILD_HASH=$(git describe --abbrev=8 --always --tags --dirty) >> $GITHUB_ENV
@@ -103,7 +103,7 @@ jobs:
         run: |
           echo "${{ steps.branch-name.outputs.current_branch }}"
           echo "${{ steps.meta.outputs.tags }}"
-          echo "CUSTOM_TAG=ghcr.io/snowsune/fops-bot:$(echo "${{ steps.branch-name.outputs.current_branch }}" | sed 's/[^a-zA-Z0-9]/-/g; s/[A-Z]/\L&/g')" >> $GITHUB_ENV
+          echo "CUSTOM_TAG=ghcr.io/snowsune/boorubot:$(echo "${{ steps.branch-name.outputs.current_branch }}" | sed 's/[^a-zA-Z0-9]/-/g; s/[A-Z]/\L&/g')" >> $GITHUB_ENV
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
@@ -121,4 +121,4 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         uses: Ilshidur/action-discord@master
         with:
-          args: "Built and published a new Fops Bot docker image to `${{ env.CUSTOM_TAG }}`!"
+          args: "Built and published a new Booru Bot docker image to `${{ env.CUSTOM_TAG }}`!"

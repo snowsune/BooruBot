@@ -12,7 +12,7 @@ lint: ## Delint the code
 	flake8 .
 
 test: build ## Run the tests
-	docker-compose run fops_bot test
+	docker-compose run boorubot test
 
 install-requirements: ## Install requirements (locally)
 	pip install -r requirements/requirements.txt
@@ -29,10 +29,10 @@ docker-rm: stop ## Delete container
 	docker-compose rm -f
 
 shell: ## Get container shell
-	docker-compose run --entrypoint "/bin/bash" fops_bot
+	docker-compose run --entrypoint "/bin/bash" boorubot
 
 run: build ## Run command in container
-	docker-compose run fops_bot $(COMMAND)
+	docker-compose run boorubot $(COMMAND)
 
 stop: ## Stop container
 	docker-compose down
@@ -42,4 +42,4 @@ dev:  ## Make everything you need to dev in the background
 	docker-compose -f docker-compose.yml up db pgadmin --remove-orphans
 
 quick: build  ## Make just what you need to quick-test
-	docker-compose -f docker-compose.yml up fops_bot
+	docker-compose -f docker-compose.yml up boorubot

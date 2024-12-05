@@ -3,8 +3,8 @@
 # MIT License
 
 
-from .main import FopsBot
+from .main import BooruBot
 
-bot = FopsBot()
+bot = BooruBot()
 
 bot.run()

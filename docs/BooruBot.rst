@@ -1,4 +1,4 @@
-FOPS Bot
+BooruBot
 ========
 
 

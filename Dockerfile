@@ -6,7 +6,7 @@ FROM python:3.10-slim
 LABEL authors="31870999+KenwoodFox@users.noreply.github.com"
 
 # Set the name of our app
-ARG APP_NAME=fops-bot
+ARG APP_NAME=boorubot
 ENV APP_NAME=${APP_NAME}
 
 # App home

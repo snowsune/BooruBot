@@ -28,7 +28,7 @@ def init_db():
         return False
 
 
-class FopsBot:
+class BooruBot:
     def __init__(self):
         # Intents (new iirc)
         intents = Intents(messages=True, reactions=True, guilds=True)
