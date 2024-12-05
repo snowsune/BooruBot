@@ -1,6 +1,4 @@
-# FOSNHU
-# 2021, Fops Bot
-# MIT License
+# BooruBot
 
 
 from .main import BooruBot
