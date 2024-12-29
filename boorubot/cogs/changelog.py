@@ -57,75 +57,31 @@ class Changelog(commands.Cog, name="ChangeLogCog"):
             logging.info("No new changelog to report.")
             return
 
-        # Now we need to notify all guilds that have changelog notifications enabled
-        guilds_with_changelog_enabled = get_guilds_with_feature_enabled(
-            "changelog_alert"
+        # This was simplified when i took out the fops bot feature system,
+        # For boorubot, i'll just read a single changelog channel from maintenance
+        ch_id = str(os.environ.get("BOORU_MAINTENANCE"))
+        if not ch_id:
+            logging.warning(f"No channel set for changelog alerts in guild {guild_id}")
+            return
+
+        channel = self.bot.get_channel(int(ch_id))
+        if not channel:
+            logging.warning(f"Could not find channel {ch_id} in guild {guild_id}")
+            return
+
+        # Replace any placeholders in the changelog text
+        cur_logstr_formatted = f"# Changelog {cur_lognum}\n" + cur_logstr.replace(
+            "{{version}}", self.bot.version
         )
 
-        for guild_id in guilds_with_changelog_enabled:
-            feature_data = get_feature_data(guild_id, "changelog_alert")
-            if not feature_data or not feature_data.get("enabled"):
-                continue
-
-            # Get the channel ID for the changelog alert
-            channel_id = feature_data.get("feature_variables")
-            if not channel_id:
-                logging.warning(
-                    f"No channel set for changelog alerts in guild {guild_id}"
-                )
-                continue
-
-            channel = self.bot.get_channel(int(channel_id))
-            if not channel:
-                logging.warning(
-                    f"Could not find channel {channel_id} in guild {guild_id}"
-                )
-                continue
-
-            # Replace any placeholders in the changelog text
-            cur_logstr_formatted = cur_logstr.replace("{{version}}", self.bot.version)
-
-            # Post the changelog
-            await channel.send(cur_logstr_formatted)
+        # Post the changelog
+        await channel.send(cur_logstr_formatted)
 
         # Update the db after posting
         store_key("LAST_CHANGELOG", cur_lognum)
 
         logging.info("Changelog done!")
 
-    @app_commands.command(name="set_changelog_alert_channel")
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.describe(channel="The channel to set for changelog alerts")
-    async def set_changelog_alert_channel(
-        self, ctx: discord.Interaction, channel: discord.TextChannel
-    ):
-        """
-        Set the channel to receive changelog alerts for the guild.
-        """
-        guild_id = ctx.guild_id
 
-        # Enable the changelog_alert feature for this guild and set the channel
-        set_feature_state(guild_id, "changelog_alert", True, str(channel.id))
-
-        await ctx.response.send_message(
-            f"Changelog alerts have been set for {channel.mention}.", ephemeral=True
-        )
-
-    @app_commands.command(name="disable_changelog_alert_channel")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def disable_changelog_alert_channel(self, ctx: discord.Interaction):
-        """
-        Disable changelog alerts for the guild.
-        """
-        guild_id = ctx.guild_id
-
-        # Disable the changelog_alert feature for this guild
-        set_feature_state(guild_id, "changelog_alert", False)
-
-        await ctx.response.send_message(
-            "Changelog alerts have been disabled.", ephemeral=True
-        )
-
-
-# async def setup(bot):
-#     await bot.add_cog(Changelog(bot))
+async def setup(bot):
+    await bot.add_cog(Changelog(bot))
