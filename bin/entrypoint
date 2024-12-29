@@ -7,5 +7,5 @@ if [ "$1" = test ]; then
     exec pytest "${@:2}"
 else
     # Run the actual code otherwise
-    exec python -m fops_bot
+    exec python -m boorubot
 fi

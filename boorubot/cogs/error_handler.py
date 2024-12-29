@@ -1,17 +1,10 @@
+import os
 import discord
 import logging
 import traceback
 
 from discord import app_commands
 from discord.ext import commands
-
-from utilities.features import (
-    get_feature_data,
-    set_feature_state,
-    get_guilds_with_feature_enabled,
-)
-
-from utilities.helpers import set_feature_state_helper
 
 
 class ErrorHandlerCog(commands.Cog):
@@ -66,18 +59,13 @@ class ErrorHandlerCog(commands.Cog):
     async def send_error_report(self, interaction: discord.Interaction, error):
         """
         Send a detailed error report to the configured admin channel for app commands.
-
-        Note, this does it on a per-guild basis, so you wont cross-post guild errors
         """
-        guild_id = interaction.guild.id if interaction.guild else None
-        feature_data = get_feature_data(guild_id, "error_reporting")
 
-        admin_channel_id = (
-            feature_data.get("feature_variables") if feature_data else None
-        )
+        # Send errors to this env
+        ch_id = str(os.environ.get("BOORU_MAINTENANCE"))
 
-        if admin_channel_id:
-            channel = self.bot.get_channel(int(admin_channel_id))
+        if ch_id:
+            channel = self.bot.get_channel(int(ch_id))
             if channel:
                 error_traceback = "".join(
                     traceback.format_exception(type(error), error, error.__traceback__)
@@ -94,7 +82,7 @@ class ErrorHandlerCog(commands.Cog):
                         "Failed to send error report to admin channel for app command"
                     )
             else:
-                logging.warning(f"Admin channel with ID {admin_channel_id} not found")
+                logging.warning(f"Admin channel with ID {ch_id} not found")
                 raise error
         else:
             logging.warning("No admin channel configured for error reporting")
@@ -107,29 +95,6 @@ class ErrorHandlerCog(commands.Cog):
     )
     async def test_error_handler(self, interaction: discord.Interaction, state: bool):
         raise IndexError
-
-    @app_commands.command(name="set_error_channel")
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.describe(
-        channel="The channel to set for error reporting",
-        enable="Enable or disable the error reporting feature (defaults to True)",
-    )
-    async def set_error_channel(
-        self,
-        ctx: discord.Interaction,
-        channel: discord.TextChannel,
-        enable: bool = True,
-    ):
-        """
-        Enables or disables error reporting for the admin channel.
-        """
-        await set_feature_state_helper(
-            ctx=ctx,
-            feature_name="error_reporting",
-            enable=enable,  # Toggle feature based on the passed argument
-            channels=[channel],  # Single channel
-            multi_channel=False,  # Not a multi-channel feature
-        )
 
 
 async def setup(bot):

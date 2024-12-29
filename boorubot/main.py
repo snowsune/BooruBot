@@ -1,6 +1,4 @@
-# FOSNHU
-# 2021, Fops Bot
-# MIT License
+# Booru Bot
 
 import os
 import sys
@@ -28,7 +26,7 @@ def init_db():
         return False
 
 
-class FopsBot:
+class BooruBot:
     def __init__(self):
         # Intents (new iirc)
         intents = Intents(messages=True, reactions=True, guilds=True)
@@ -52,7 +50,7 @@ class FopsBot:
         self.debug = str(os.environ.get("DEBUG")).lower() in ("true", "1", "t")
 
         # Append our workdir to the path (for importing modules)
-        self.workdir = "/app/fops_bot/"
+        self.workdir = "/app/boorubot/"
         sys.path.append(self.workdir)
 
         # Setup logging.

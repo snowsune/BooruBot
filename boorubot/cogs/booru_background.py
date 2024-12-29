@@ -14,10 +14,9 @@ from saucenao_api import SauceNao
 from saucenao_api.errors import SauceNaoApiError
 
 from utilities.database import retrieve_key, store_key
-from utilities.features import get_feature_data, get_guilds_with_feature_enabled
 
 booru_scripts = imp.load_source(
-    "booru_scripts", "fops_bot/scripts/Booru_Scripts/booru_utils.py"
+    "booru_scripts", "boorubot/scripts/Booru_Scripts/booru_utils.py"
 )
 
 
@@ -33,6 +32,11 @@ class BackgroundBooru(commands.Cog, name="BooruBackgroundCog"):
         # Configure SauceNAO
         self.sauce_api_key = os.environ.get("SAUCENAO_API_KEY", "")
         self.sauce = SauceNao(api_key=self.sauce_api_key)
+
+        # Get channels
+        _booru_channels = str(os.environ.get("BOORU_AUTO_UPLOAD")).split(",")
+        self.fav_ch = _booru_channels[0]  # First channel in list is where favs go
+        self.maintenance_channel_id = str(os.environ.get("BOORU_MAINTENANCE"))
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -194,41 +198,37 @@ class BackgroundBooru(commands.Cog, name="BooruBackgroundCog"):
 
     @tasks.loop(minutes=10)
     async def update_status(self):
-        guilds_with_maintenance_enabled = get_guilds_with_feature_enabled(
-            "booru_maintenance"
+        maintenance_channel_id = str(os.environ.get("BOORU_MAINTENANCE"))
+        if not maintenance_channel_id:
+            return
+
+        channel = self.bot.get_channel(int(maintenance_channel_id))
+        if not channel:
+            logging.warn(
+                f"Could not find maintenance channel {maintenance_channel_id}."
+            )
+            return
+
+        last_message = await channel.history(limit=1).__anext__()
+        if last_message and last_message.author == self.bot.user:
+            logging.debug("Last message was posted by the bot, skipping...")
+            return
+
+        r_post = booru_scripts.fetch_images_with_tag(
+            "tagme", self.api_url, self.api_key, self.api_user, limit=1, random=True
+        )[0]
+
+        post_url = f"{self.api_url}/posts/{r_post['id']}"
+        image_url = booru_scripts.get_image_url(
+            r_post["id"], self.api_url, self.api_key, self.api_user
         )
 
-        for guild_id in guilds_with_maintenance_enabled:
-            feature_data = get_feature_data(guild_id, "booru_maintenance")
-            maintenance_channel_id = feature_data.get("feature_variables")
-            if not maintenance_channel_id:
-                continue
+        sauce_info = await self.get_sauce_info(channel, image_url)
+        message = f"{r_post['id']}\n\n{post_url}"
+        if sauce_info.get("source"):
+            message += f"\n\nFound author and source `art:{sauce_info.get('author')} source:{sauce_info.get('source')}` via SauceNAO."
 
-            channel = self.bot.get_channel(int(maintenance_channel_id))
-            if not channel:
-                logging.warn(f"Could not find maintenance channel in guild {guild_id}.")
-                continue
-
-            last_message = await channel.history(limit=1).__anext__()
-            if last_message and last_message.author == self.bot.user:
-                logging.debug("Last message was posted by the bot, skipping...")
-                continue
-
-            r_post = booru_scripts.fetch_images_with_tag(
-                "tagme", self.api_url, self.api_key, self.api_user, limit=1, random=True
-            )[0]
-
-            post_url = f"{self.api_url}/posts/{r_post['id']}"
-            image_url = booru_scripts.get_image_url(
-                r_post["id"], self.api_url, self.api_key, self.api_user
-            )
-
-            sauce_info = await self.get_sauce_info(channel, image_url)
-            message = f"{r_post['id']}\n\n{post_url}"
-            if sauce_info.get("source"):
-                message += f"\n\nFound author and source `art:{sauce_info.get('author')} source:{sauce_info.get('source')}` via SauceNAO."
-
-            await channel.send(message)
+        await channel.send(message)
 
     async def get_sauce_info(self, channel, image_url):
         try:
@@ -245,59 +245,42 @@ class BackgroundBooru(commands.Cog, name="BooruBackgroundCog"):
 
     @tasks.loop(seconds=30)
     async def check_new_comments(self):
-        guilds_with_auto_upload = get_guilds_with_feature_enabled("booru_updates")
+        channel = self.bot.get_channel(int(self.fav_ch))
+        if not channel:
+            logging.warn(f"Could not find auto upload channel in guild {guild_id}.")
+            return
 
-        for guild_id in guilds_with_auto_upload:
-            feature_data = get_feature_data(guild_id, "booru_updates")
-            auto_upload_channels = feature_data.get("feature_variables", "").split(",")
-            if not auto_upload_channels:
-                continue
+        last_comment_id = retrieve_key("last_comment_id", 0) or 0
+        new_comments = booru_scripts.fetch_new_comments(
+            self.api_url,
+            self.api_key,
+            self.api_user,
+            last_comment_id=last_comment_id,
+        )
 
-            for channel_id in auto_upload_channels:
-                channel = self.bot.get_channel(int(channel_id))
-                if not channel:
-                    logging.warn(
-                        f"Could not find auto upload channel in guild {guild_id}."
+        if new_comments:
+            if last_comment_id != 0:
+                for comment in new_comments:
+                    _username = booru_scripts.get_username(
+                        self.api_url,
+                        self.api_key,
+                        self.api_user,
+                        comment["creator_id"],
                     )
-                    continue
-
-                last_comment_id = retrieve_key("last_comment_id", 0) or 0
-                new_comments = booru_scripts.fetch_new_comments(
-                    self.api_url,
-                    self.api_key,
-                    self.api_user,
-                    last_comment_id=last_comment_id,
+                    await channel.send(
+                        f"New comment by {_username} on post {comment['post_id']}:\n{comment['body']}\n\n{self.api_url}/posts/{comment['post_id']}"
+                    )
+            else:
+                # Last comment id was 0! So we're skipping/new db.. either way.. DONT post all the comments!
+                logging.warning(
+                    f"Skipping posting {len(new_comments)} comments for now, as db was 0 or uninitialized."
                 )
 
-                if new_comments:
-                    for comment in new_comments:
-                        _username = booru_scripts.get_username(
-                            self.api_url,
-                            self.api_key,
-                            self.api_user,
-                            comment["creator_id"],
-                        )
-                        await channel.send(
-                            f"New comment by {_username} on post {comment['post_id']}:\n{comment['body']}\n\n{self.api_url}/posts/{comment['post_id']}"
-                        )
-
-                    store_key("last_comment_id", new_comments[0]["id"])
+            store_key("last_comment_id", new_comments[0]["id"])
 
     @tasks.loop(minutes=30)
     async def check_and_report_posts(self):
-        guilds_with_maintenance_enabled = get_guilds_with_feature_enabled(
-            "booru_maintenance"
-        )
-
-        logging.debug(
-            f"Running check and report posts.. output in {len(guilds_with_maintenance_enabled)} guilds."
-        )
-
-        if len(guilds_with_maintenance_enabled) == 0:
-            logging.warn(
-                "Error! No guilds configured to receive the booru maintenance!"
-            )
-            return
+        logging.debug(f"Running check and report posts.")
 
         changes = []
 
@@ -346,8 +329,7 @@ class BackgroundBooru(commands.Cog, name="BooruBackgroundCog"):
 
         if changes:
             for guild_id in guilds_with_maintenance_enabled:
-                feature_data = get_feature_data(guild_id, "booru_maintenance")
-                maintenance_channel_id = feature_data.get("feature_variables")
+                maintenance_channel_id = self.maintenance_channel_id
                 if not maintenance_channel_id:
                     continue
 

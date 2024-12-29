@@ -1,5 +1,3 @@
-version: "3.7"
-
 services:
   db:
     image: postgres:10.5
@@ -7,9 +5,9 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=fops_bot_db
+      - POSTGRES_DB=boorubot_db
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready"]
+      test: ["CMD", "pg_isready", "-q", "-d", "boorubot_db", "-U", "postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -19,10 +17,23 @@ services:
         max-file: "3"
     ports:
       - "5438:5432"
-    tmpfs: /var/lib/postgresql/data
+    volumes:
+      - .local/data:/var/lib/postgresql/data
 
-  fops_bot:
-    image: fops_bot:$TAG
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4_container
+    restart: no
+    ports:
+      - "8888:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: kenwood364@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: iamnotacrook
+    volumes:
+      - .local/pgadmin:/var/lib/pgadmin
+
+  boorubot:
+    image: boorubot:$TAG
     depends_on:
       db:
         condition: service_healthy
@@ -31,17 +42,21 @@ services:
       dockerfile: Dockerfile
     environment:
       TZ: America/New_York
-      BOT_TOKEN: "secret"
-      NCTOKEN: "secret"
-      PFSENSE_URL: "https://my.ip.he.re"
-      PFSENSE_USER: "user"
-      PFSENSE_PASSWORD: "passwd"
-      ALERT_CHAN_ID: 000000000000000000
-      WEATHER_CHAN_ID: 000000000000000000
-      HOLES: "000000000000000000,000000000000000000;"
-      BOORU_KEY: "secret"
-      BOORU_USER: "user"
-      BOORU_URL: "https://booru.mydomain.net"
-      BOORU_AUTO_UPLOAD: "000000000000000000, 000000000000000000"
+      BOT_TOKEN: ""
+      ALERT_CHAN_ID: ""
+      SERVICE_CHAN_ID: ""
+      BOORU_KEY: ""
+      BOORU_USER: "DiscordBot"
+      BOORU_URL: "https://booru.kitsunehosting.net"
+      BOORU_AUTO_UPLOAD: ""
+      BOORU_MAINTENANCE: ""
+      SAUCENAO_API_KEY: ""
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: boorubot_db
+      DB_HOST: db
+      DB_PORT: 5432
+    volumes:
+      - .local/config:/app/config
     restart: "no"
     command: "true"

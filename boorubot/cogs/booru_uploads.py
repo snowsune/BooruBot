@@ -16,22 +16,13 @@ from typing import Literal, Optional
 from discord import app_commands
 from discord.ext import commands, tasks
 
-from utilities.features import (
-    is_feature_enabled,
-    set_feature_state,
-    get_feature_data,
-    get_guilds_with_feature_enabled,
-    is_nsfw_enabled,
-)
-
 from saucenao_api import SauceNao
 from saucenao_api.errors import SauceNaoApiError
 
 from utilities.database import retrieve_key, store_key
-from utilities.helpers import set_feature_state_helper
 
 booru_scripts = imp.load_source(
-    "booru_scripts", "fops_bot/scripts/Booru_Scripts/booru_utils.py"
+    "booru_scripts", "boorubot/scripts/Booru_Scripts/booru_utils.py"
 )
 
 
@@ -97,7 +88,7 @@ class TagModal(discord.ui.Modal, title="Enter Tags"):
             #     )
 
 
-class Booru(commands.Cog, name="BooruCog"):
+class BooruUploads(commands.Cog, name="BooruCog"):
     def __init__(self, bot):
         self.bot = bot
 
@@ -157,32 +148,32 @@ class Booru(commands.Cog, name="BooruCog"):
 
     @commands.Cog.listener()
     async def on_message(self, message):
+        # Don't scan or reply to bots or ourselves, or anything with no attachments
         if message.author.bot or not message.attachments:
             return
 
-        # Auto upload list is pulled from the features database
-        auto_upload_list = (
-            get_feature_data(message.guild.id, "booru_auto_upload")
-            .get("feature_variables")
-            .split(",")
-        )
+        # Default we will upload unless something turns it off.
+        _is_auto_upload = True
+
+        # Auto upload list comes from the auto upload list now.
+        auto_upload_list = str(os.environ.get("BOORU_AUTO_UPLOAD")).split(",")
         if str(message.channel.id) not in auto_upload_list:
             logging.info(
                 f"Not uploading image in {message.channel.id}, not in list {auto_upload_list}"
             )
-            return
-
-        # Cant process more than one at a time!
-        if len(message.attachments) > 1:
-            logging.info("Too many attachments")
-            await message.add_reaction("🤹‍♂️")
-            return
+            _is_auto_upload = False
 
         # Must be an image
         if not message.attachments[0].content_type.startswith("image/"):
             logging.warn("Attachment is not an image?")
             await message.add_reaction("❌")
-            return
+            return  # Cant scan a non-image.
+
+        # Cant process more than one at a time!
+        if len(message.attachments) > 1:
+            logging.info("Too many attachments")
+            await message.add_reaction("🤹‍♂️")
+            return  # Cant check db against multiple images anyway
 
         # Get attachment
         attachment = message.attachments[0]
@@ -213,8 +204,9 @@ class Booru(commands.Cog, name="BooruCog"):
                 for digit in post_id_str:
                     # React with the corresponding emoji
                     await message.add_reaction(self.get_emoji(digit))
-        else:
-            # We get to this stage when we've looked up and confirmed that this post is unique!
+
+        elif _is_auto_upload:  # If we're good to auto upload.
+            # Add a gem! Its time to upload this new image
             await message.add_reaction("💎")
 
             # Prepare the description with user and channel information
@@ -277,6 +269,9 @@ class Booru(commands.Cog, name="BooruCog"):
                     logging.warning(
                         f"SauceNAO couldn't find source for {attachment.url}"
                     )
+        else:
+            # Nothing to do, image was unique, but was not in an auto upload channel
+            return
 
         # Increment image count
         ic = retrieve_key("image_count", 1)
@@ -436,77 +431,6 @@ class Booru(commands.Cog, name="BooruCog"):
             f"{os.environ.get('BOORU_URL', '')}/posts/{selected_image['id']}?q={'+'.join(tags.split(' '))}"
         )
 
-    # ==================================================
-    # Feature enable/disable
-    # ==================================================
-
-    @app_commands.command(name="booru_upload")
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.describe(
-        channel="Enable or disable automatic upload to the booru server for this channel",
-        enable="Enable or disable booru upload for this channel (defaults to True)",
-    )
-    async def booru_upload(
-        self,
-        ctx: discord.Interaction,
-        channel: discord.TextChannel,
-        enable: bool = True,
-    ):
-        """
-        Enables or disables booru auto-upload on a channel.
-        """
-        await set_feature_state_helper(
-            ctx=ctx,
-            feature_name="booru_auto_upload",
-            enable=enable,  # Toggle feature based on the passed argument
-            channels=[channel],  # Single channel at a time, but multi-channel feature
-            multi_channel=True,  # Can have multiple channels
-        )
-
-    @app_commands.command(name="set_booru_maintenance")
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.describe(
-        channel="The channel to configure for booru maintenance tasks."
-    )
-    async def set_booru_maintenance(
-        self, ctx: discord.Interaction, channel: discord.TextChannel
-    ):
-        """
-        Enables the booru server to post here
-        """
-        guild_id = ctx.guild_id
-
-        set_feature_state(guild_id, "booru_maintenance", True, str(channel.id))
-
-        await ctx.response.send_message(
-            f"booru_maintenance enabled and channel set to {channel.mention}",
-            ephemeral=True,
-        )
-
-    @app_commands.command(name="set_booru_updates")
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.describe(
-        channel="The booru server will post regular comments and updates here"
-    )
-    async def set_set_booru_updates(
-        self, ctx: discord.Interaction, channel: discord.TextChannel
-    ):
-        """
-        Enables the booru server to post here
-        """
-        guild_id = ctx.guild_id
-
-        set_feature_state(guild_id, "booru_updates", True, str(channel.id))
-
-        await ctx.response.send_message(
-            f"booru_updates enabled and channel set to {channel.mention}",
-            ephemeral=True,
-        )
-
-    # ==================================================
-    # End Feature enable/disable
-    # ==================================================
-
     # Sauce NAO Integration stuff
 
     async def get_sauce_info(self, image_url: str) -> dict:
@@ -592,4 +516,4 @@ class Booru(commands.Cog, name="BooruCog"):
 
 
 async def setup(bot):
-    await bot.add_cog(Booru(bot))
+    await bot.add_cog(BooruUploads(bot))

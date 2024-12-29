@@ -5,16 +5,16 @@ from setuptools import setup, find_packages
 readme = open("README.md").read()
 
 setup(
-    name="fops_bot",
+    name="boorubot",
     description="todo",
-    author="Furries of SNHU",
+    author="BixiBoo",
     author_email="tbd@gmail.com",
-    url="https://github.com/KenwoodFox/FOpS-Bot",
-    packages=find_packages(include=["fops_bot"]),
-    package_dir={"fops-bot": "fops_bot"},
+    url="https://github.com/snowsune/BooruBot",
+    packages=find_packages(include=["boorubot"]),
+    package_dir={"boorubot": "boorubot"},
     entry_points={
         "console_scripts": [
-            "fops-bot=fops_bot.__main__:main",
+            "boorubot=boorubot.__main__:main",
         ],
     },
     python_requires=">=3.10.0",

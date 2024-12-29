@@ -1,6 +1,3 @@
-[submodule "fops_bot/scripts/9c22108eaa18e1a079144738e3c7737c"]
-	path = fops_bot/scripts/pfsense_arp
-	url = https://gist.github.com/9c22108eaa18e1a079144738e3c7737c.git
 [submodule "fops_bot/scripts/Booru_Scripts"]
-	path = fops_bot/scripts/Booru_Scripts
+	path = boorubot/scripts/Booru_Scripts
 	url = https://git.kitsunehosting.net/Kenwood/Booru_Scripts
