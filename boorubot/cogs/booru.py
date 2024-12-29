@@ -16,19 +16,10 @@ from typing import Literal, Optional
 from discord import app_commands
 from discord.ext import commands, tasks
 
-from utilities.features import (
-    is_feature_enabled,
-    set_feature_state,
-    get_feature_data,
-    get_guilds_with_feature_enabled,
-    is_nsfw_enabled,
-)
-
 from saucenao_api import SauceNao
 from saucenao_api.errors import SauceNaoApiError
 
 from utilities.database import retrieve_key, store_key
-from utilities.helpers import set_feature_state_helper
 
 booru_scripts = imp.load_source(
     "booru_scripts", "fops_bot/scripts/Booru_Scripts/booru_utils.py"
@@ -591,5 +582,5 @@ class Booru(commands.Cog, name="BooruCog"):
         await reaction.message.delete()
 
 
-async def setup(bot):
-    await bot.add_cog(Booru(bot))
+# async def setup(bot):
+#     await bot.add_cog(Booru(bot))

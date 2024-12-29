@@ -8,13 +8,6 @@ from datetime import datetime
 
 from utilities.common import seconds_until
 
-from utilities.features import (
-    is_feature_enabled,
-    set_feature_state,
-    get_feature_data,
-    get_guilds_with_feature_enabled,
-)
-
 from utilities.database import store_key, retrieve_key
 
 

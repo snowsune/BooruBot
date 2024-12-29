@@ -7,11 +7,6 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from utilities.database import retrieve_key, store_key
-from utilities.features import (
-    get_feature_data,
-    set_feature_state,
-    get_guilds_with_feature_enabled,
-)
 
 
 def get_current_changelog(file_path) -> (int, str):
@@ -132,5 +127,5 @@ class Changelog(commands.Cog, name="ChangeLogCog"):
         )
 
 
-async def setup(bot):
-    await bot.add_cog(Changelog(bot))
+# async def setup(bot):
+#     await bot.add_cog(Changelog(bot))

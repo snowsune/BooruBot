@@ -8,11 +8,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from utilities.database import retrieve_key, store_key
-from utilities.features import (
-    get_feature_data,
-    get_guilds_with_feature_enabled,
-    set_feature_state,
-)
+
 
 # Load booru utility functions
 booru_scripts = imp.load_source(
@@ -130,5 +126,5 @@ class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
         )
 
 
-async def setup(bot):
-    await bot.add_cog(FavoriteWatcher(bot))
+# async def setup(bot):
+#     await bot.add_cog(FavoriteWatcher(bot))

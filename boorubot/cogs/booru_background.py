@@ -14,10 +14,9 @@ from saucenao_api import SauceNao
 from saucenao_api.errors import SauceNaoApiError
 
 from utilities.database import retrieve_key, store_key
-from utilities.features import get_feature_data, get_guilds_with_feature_enabled
 
 booru_scripts = imp.load_source(
-    "booru_scripts", "fops_bot/scripts/Booru_Scripts/booru_utils.py"
+    "booru_scripts", "boorubot/scripts/Booru_Scripts/booru_utils.py"
 )
 
 
@@ -366,5 +365,5 @@ class BackgroundBooru(commands.Cog, name="BooruBackgroundCog"):
             logging.info("No changes made during this check.")
 
 
-async def setup(bot):
-    await bot.add_cog(BackgroundBooru(bot))
+# async def setup(bot):
+#     await bot.add_cog(BackgroundBooru(bot))
