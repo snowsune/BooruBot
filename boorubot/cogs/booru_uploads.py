@@ -327,7 +327,7 @@ class BooruUploads(commands.Cog, name="BooruCog"):
     @app_commands.describe(tags="Like `cute canine outdoors`")
     async def random(self, interaction: discord.Interaction, tags: str):
         # Skip if not NSFW!
-        if not await is_nsfw_enabled(interaction):
+        if not interaction.channel.nsfw:
             return
 
         # Default tags to exclude unless explicitly included
@@ -362,7 +362,7 @@ class BooruUploads(commands.Cog, name="BooruCog"):
     async def fetch_usernames_with_favs(self):
         logging.info("Fetching usernames with favs...")
         self.users_with_favs = booru_scripts.fetch_usernames_with_favs(
-            self.api_url, self.api_key, self.api_user
+            self.api_url, self.api_key, self.api_user, 100
         )
         logging.info(f"Fetched {len(self.users_with_favs)} users with favs")
 
@@ -392,7 +392,7 @@ class BooruUploads(commands.Cog, name="BooruCog"):
         user: str,
         tags: str = "",
     ):
-        if not await is_nsfw_enabled(interaction):
+        if not interaction.channel.nsfw:
             return
 
         # Default tags to exclude unless explicitly included
