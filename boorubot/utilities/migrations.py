@@ -60,33 +60,6 @@ def apply_migration(migration_name, migration_func):
     conn.close()
 
 
-# Migrations follow..
-def create_features_table(cur):
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS features (
-            guild_id BIGINT,
-            feature_name TEXT,
-            enabled BOOLEAN,
-            feature_variables TEXT,  -- Can store anything (like channel id) for this feature
-            PRIMARY KEY (guild_id, feature_name)
-        );
-    """
-    )
-
-
-def create_guild_table(cur):
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS guilds (
-            guild_id BIGINT PRIMARY KEY,
-            joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            name TEXT
-        );
-    """
-    )
-
-
 def create_key_value_table(cur):
     cur.execute(
         """
@@ -102,6 +75,4 @@ def init_migrations():
     init_migration_log()
 
     # Apply migrations
-    apply_migration("create_features_table", create_features_table)
-    apply_migration("create_guild_table", create_guild_table)
     apply_migration("create_key_value_table", create_key_value_table)

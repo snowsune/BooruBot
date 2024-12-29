@@ -12,7 +12,7 @@ from utilities.database import retrieve_key, store_key
 
 # Load booru utility functions
 booru_scripts = imp.load_source(
-    "booru_scripts", "fops_bot/scripts/Booru_Scripts/booru_utils.py"
+    "booru_scripts", "boorubot/scripts/Booru_Scripts/booru_utils.py"
 )
 
 

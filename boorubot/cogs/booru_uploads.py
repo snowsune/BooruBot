@@ -22,7 +22,7 @@ from saucenao_api.errors import SauceNaoApiError
 from utilities.database import retrieve_key, store_key
 
 booru_scripts = imp.load_source(
-    "booru_scripts", "fops_bot/scripts/Booru_Scripts/booru_utils.py"
+    "booru_scripts", "boorubot/scripts/Booru_Scripts/booru_utils.py"
 )
 
 
@@ -88,7 +88,7 @@ class TagModal(discord.ui.Modal, title="Enter Tags"):
             #     )
 
 
-class Booru(commands.Cog, name="BooruCog"):
+class BooruUploads(commands.Cog, name="BooruCog"):
     def __init__(self, bot):
         self.bot = bot
 
@@ -148,32 +148,32 @@ class Booru(commands.Cog, name="BooruCog"):
 
     @commands.Cog.listener()
     async def on_message(self, message):
+        # Don't scan or reply to bots or ourselves, or anything with no attachments
         if message.author.bot or not message.attachments:
             return
 
-        # Auto upload list is pulled from the features database
-        auto_upload_list = (
-            get_feature_data(message.guild.id, "booru_auto_upload")
-            .get("feature_variables")
-            .split(",")
-        )
+        # Default we will upload unless something turns it off.
+        _is_auto_upload = True
+
+        # Auto upload list comes from the auto upload list now.
+        auto_upload_list = str(os.environ.get("BOORU_AUTO_UPLOAD")).split(",")
         if str(message.channel.id) not in auto_upload_list:
             logging.info(
                 f"Not uploading image in {message.channel.id}, not in list {auto_upload_list}"
             )
-            return
-
-        # Cant process more than one at a time!
-        if len(message.attachments) > 1:
-            logging.info("Too many attachments")
-            await message.add_reaction("🤹‍♂️")
-            return
+            _is_auto_upload = False
 
         # Must be an image
         if not message.attachments[0].content_type.startswith("image/"):
             logging.warn("Attachment is not an image?")
             await message.add_reaction("❌")
-            return
+            return  # Cant scan a non-image.
+
+        # Cant process more than one at a time!
+        if len(message.attachments) > 1:
+            logging.info("Too many attachments")
+            await message.add_reaction("🤹‍♂️")
+            return  # Cant check db against multiple images anyway
 
         # Get attachment
         attachment = message.attachments[0]
@@ -204,8 +204,9 @@ class Booru(commands.Cog, name="BooruCog"):
                 for digit in post_id_str:
                     # React with the corresponding emoji
                     await message.add_reaction(self.get_emoji(digit))
-        else:
-            # We get to this stage when we've looked up and confirmed that this post is unique!
+
+        elif _is_auto_upload:  # If we're good to auto upload.
+            # Add a gem! Its time to upload this new image
             await message.add_reaction("💎")
 
             # Prepare the description with user and channel information
@@ -268,6 +269,9 @@ class Booru(commands.Cog, name="BooruCog"):
                     logging.warning(
                         f"SauceNAO couldn't find source for {attachment.url}"
                     )
+        else:
+            # Nothing to do, image was unique, but was not in an auto upload channel
+            return
 
         # Increment image count
         ic = retrieve_key("image_count", 1)
@@ -511,5 +515,5 @@ class Booru(commands.Cog, name="BooruCog"):
         await reaction.message.delete()
 
 
-# async def setup(bot):
-#     await bot.add_cog(Booru(bot))
+async def setup(bot):
+    await bot.add_cog(BooruUploads(bot))
