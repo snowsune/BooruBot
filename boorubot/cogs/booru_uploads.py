@@ -26,6 +26,46 @@ booru_scripts = imp.load_source(
 )
 
 
+# Helper function to detect and download image from URL
+async def get_image_from_message(message: discord.Message) -> Optional[str]:
+    """
+    Check if a message contains only an image URL and download it.
+
+    Args:
+        message (discord.Message): The message to check.
+
+    Returns:
+        Optional[str]: Path to the downloaded image file or None if not valid.
+    """
+
+    # Regular expression to detect a URL with valid image extensions
+    image_url_pattern = re.compile(
+        r"^(https?://\S+\.(?:png|jpg|jpeg|webp|gif|mp4|webm))$", re.IGNORECASE
+    )
+
+    if message.content and image_url_pattern.match(message.content.strip()):
+        url = message.content.strip()
+        file_name = os.path.basename(url)
+        file_path = f"/tmp/{file_name}"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        with open(file_path, "wb") as f:
+                            f.write(await resp.read())
+                        logging.info(f"Saved a custom linked image to {file_path}!")
+                        return file_path
+                    else:
+                        logging.warn(
+                            f"Failed to download image. HTTP Status: {resp.status}"
+                        )
+        except Exception as e:
+            logging.error(f"Error downloading image from URL: {e}")
+
+    return None
+
+
 # This is pretty cool, basically a popup UI
 class TagModal(discord.ui.Modal, title="Enter Tags"):
     tags = discord.ui.TextInput(
@@ -148,8 +188,8 @@ class BooruUploads(commands.Cog, name="BooruCog"):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        # Don't scan or reply to bots or ourselves, or anything with no attachments
-        if message.author.bot or not message.attachments:
+        # Don't scan or reply to bots or ourselves
+        if message.author.bot:
             return
 
         # Default we will upload unless something turns it off.
@@ -163,28 +203,26 @@ class BooruUploads(commands.Cog, name="BooruCog"):
             )
             _is_auto_upload = False
 
-        # Must be an image
-        if not message.attachments[0].content_type.startswith("image/"):
-            logging.warn("Attachment is not an image?")
-            await message.add_reaction("❌")
-            return  # Cant scan a non-image.
+        # Handle attachments
+        if message.attachments and message.attachments[0].content_type.startswith(
+            "image/"
+        ):
+            attachment = message.attachments[0]
+            attachment_url = attachment.url
+            file_path = f"/tmp/{attachment.filename}"
 
-        # Cant process more than one at a time!
-        if len(message.attachments) > 1:
-            logging.info("Too many attachments")
-            await message.add_reaction("🤹‍♂️")
-            return  # Cant check db against multiple images anyway
-
-        # Get attachment
-        attachment = message.attachments[0]
-        file_path = f"/tmp/{attachment.filename}"
-
-        # Download the image
-        async with aiohttp.ClientSession() as session:
-            async with session.get(attachment.url) as resp:
-                if resp.status == 200:
-                    with open(file_path, "wb") as f:
-                        f.write(await resp.read())
+            async with aiohttp.ClientSession() as session:
+                async with session.get(attachment.url) as resp:
+                    if resp.status == 200:
+                        with open(file_path, "wb") as f:
+                            f.write(await resp.read())
+        else:
+            # Handle URLs as images
+            file_path = await get_image_from_message(message)
+            attachment_url = message.content.strip()
+            await message.add_reaction("🔗")
+            if not file_path:
+                return  # Neither attachment nor valid image URL
 
         # Call the get_post_id function
         post_id = booru_scripts.check_image_exists(
@@ -256,7 +294,7 @@ class BooruUploads(commands.Cog, name="BooruCog"):
 
                 # SauceNAO integration
                 logging.debug("Fetching sauce info")
-                sauce_info = await self.get_sauce_info(attachment.url)
+                sauce_info = await self.get_sauce_info(attachment_url)
                 if sauce_info["source"]:
                     confirmation_message = await message.reply(
                         f"Found author: `{sauce_info['author']}` and source: <{sauce_info['source']}> for post `{post_id}` via SauceNAO.\n"
@@ -267,7 +305,7 @@ class BooruUploads(commands.Cog, name="BooruCog"):
                     await confirmation_message.add_reaction("❌")
                 else:
                     logging.warning(
-                        f"SauceNAO couldn't find source for {attachment.url}"
+                        f"SauceNAO couldn't find source for {attachment_url}"
                     )
         else:
             # Nothing to do, image was unique, but was not in an auto upload channel
