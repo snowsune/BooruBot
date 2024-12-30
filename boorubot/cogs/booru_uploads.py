@@ -151,6 +151,9 @@ class BooruUploads(commands.Cog, name="BooruCog"):
         self.sauce_api_key = os.environ.get("SAUCENAO_API_KEY", "")
         self.sauce = SauceNao(api_key=self.sauce_api_key)
 
+        # Configure channels
+        self.auto_upload_list = str(os.environ.get("BOORU_AUTO_UPLOAD")).split(",")
+
     @commands.Cog.listener()
     async def on_ready(self):
         # Commands
@@ -196,10 +199,9 @@ class BooruUploads(commands.Cog, name="BooruCog"):
         _is_auto_upload = True
 
         # Auto upload list comes from the auto upload list now.
-        auto_upload_list = str(os.environ.get("BOORU_AUTO_UPLOAD")).split(",")
-        if str(message.channel.id) not in auto_upload_list:
-            logging.info(
-                f"Not uploading image in {message.channel.id}, not in list {auto_upload_list}"
+        if str(message.channel.id) not in self.auto_upload_list:
+            logging.debug(
+                f"Not uploading image in {message.channel.id}, not in list {self.auto_upload_list}"
             )
             _is_auto_upload = False
 
