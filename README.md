@@ -9,3 +9,7 @@ which was originally tasked with doing all these booru functions, but was gettin
 ## Changelog 1
 
 Forked booru functions away from Fops-Bot! Woo!
+
+## Changelog 2
+
+- Fixed a freaky chain bug >:3

@@ -220,9 +220,11 @@ class BooruUploads(commands.Cog, name="BooruCog"):
             # Handle URLs as images
             file_path = await get_image_from_message(message)
             attachment_url = message.content.strip()
-            await message.add_reaction("🔗")
             if not file_path:
                 return  # Neither attachment nor valid image URL
+
+            # If everything is good, we caught a linked image!
+            await message.add_reaction("🔗")
 
         # Call the get_post_id function
         post_id = booru_scripts.check_image_exists(
