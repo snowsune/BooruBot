@@ -328,22 +328,17 @@ class BackgroundBooru(commands.Cog, name="BooruBackgroundCog"):
                 changes.append(f"Added `vore` to <{post_url}>")
 
         if changes:
-            for guild_id in guilds_with_maintenance_enabled:
-                maintenance_channel_id = self.maintenance_channel_id
-                if not maintenance_channel_id:
-                    continue
+            maintenance_channel_id = str(os.environ.get("BOORU_MAINTENANCE"))
+            if not maintenance_channel_id:
+                return
 
-                channel = self.bot.get_channel(int(maintenance_channel_id))
-                if not channel:
-                    logging.warn(
-                        f"Could not find maintenance channel in guild {guild_id}."
-                    )
-                    continue
+            channel = self.bot.get_channel(int(maintenance_channel_id))
+            if not channel:
+                logging.warn(f"Could not find maintenance channel!")
+                return
 
-                report = "\n".join(changes)
-                await channel.send(
-                    f"Fixed some regular maintenance things:\n\n{report}"
-                )
+            report = "\n".join(changes)
+            await channel.send(f"Fixed some regular maintenance things:\n\n{report}")
         else:
             logging.info("No changes made during this check.")
 

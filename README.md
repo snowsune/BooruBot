@@ -13,3 +13,8 @@ Forked booru functions away from Fops-Bot! Woo!
 ## Changelog 2
 
 - Fixed a freaky chain bug >:3
+
+## Changelog 3
+
+- Fixed RE issues not capturing ?= in discord links
+- Fixed a bug where background tasks relied sometimes on legacy code!

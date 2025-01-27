@@ -40,7 +40,7 @@ async def get_image_from_message(message: discord.Message) -> Optional[str]:
 
     # Regular expression to detect a URL with valid image extensions
     image_url_pattern = re.compile(
-        r"^(https?://\S+\.(?:png|jpg|jpeg|webp|gif|mp4|webm))$", re.IGNORECASE
+        r"^(https?://\S+?\.(?:png|jpg|jpeg|webp|gif|mp4|webm))(?:\?.*)?$", re.IGNORECASE
     )
 
     if message.content and image_url_pattern.match(message.content.strip()):
