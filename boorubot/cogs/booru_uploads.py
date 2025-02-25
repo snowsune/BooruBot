@@ -198,6 +198,10 @@ class BooruUploads(commands.Cog, name="BooruCog"):
         # Default we will upload unless something turns it off.
         _is_auto_upload = True
 
+        if "nopost" in message.content:
+            await message.add_reaction("👍")
+            return
+
         # Auto upload list comes from the auto upload list now.
         if str(message.channel.id) not in self.auto_upload_list:
             logging.debug(

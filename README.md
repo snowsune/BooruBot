@@ -18,3 +18,7 @@ Forked booru functions away from Fops-Bot! Woo!
 
 - Fixed RE issues not capturing ?= in discord links
 - Fixed a bug where background tasks relied sometimes on legacy code!
+
+## Changelog 4
+
+- Feature: including the text 'nopost' will skip the bot from uploading!
