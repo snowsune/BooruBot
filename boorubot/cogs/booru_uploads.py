@@ -198,15 +198,24 @@ class BooruUploads(commands.Cog, name="BooruCog"):
         # Default we will upload unless something turns it off.
         _is_auto_upload = True
 
-        if "nopost" in message.content:
-            await message.add_reaction("👍")
-            return
-
         # Auto upload list comes from the auto upload list now.
         if str(message.channel.id) not in self.auto_upload_list:
             logging.debug(
                 f"Not uploading image in {message.channel.id}, not in list {self.auto_upload_list}"
             )
+            _is_auto_upload = False
+
+        # Check for contributor status
+        contributor_roles = os.getenv("CONTRIBUTOR_ROLES", "")
+        contributor_roles_set = set(contributor_roles.split(","))
+
+        user_roles = {str(role.id) for role in message.author.roles}
+
+        if not contributor_roles_set & user_roles:  # No intersection
+            logging.debug(
+                f"User {message.author} has none of the contributor roles {contributor_roles_set} not in {user_roles}, disabling auto-upload"
+            )
+            await message.add_reaction("📋")
             _is_auto_upload = False
 
         # Handle attachments
