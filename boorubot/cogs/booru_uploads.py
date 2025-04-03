@@ -211,13 +211,6 @@ class BooruUploads(commands.Cog, name="BooruCog"):
 
         user_roles = {str(role.id) for role in message.author.roles}
 
-        if not contributor_roles_set & user_roles:  # No intersection
-            logging.debug(
-                f"User {message.author} has none of the contributor roles {contributor_roles_set} not in {user_roles}, disabling auto-upload"
-            )
-            await message.add_reaction("📋")
-            _is_auto_upload = False
-
         # Handle attachments
         if message.attachments and message.attachments[0].content_type.startswith(
             "image/"
@@ -259,6 +252,14 @@ class BooruUploads(commands.Cog, name="BooruCog"):
                 for digit in post_id_str:
                     # React with the corresponding emoji
                     await message.add_reaction(self.get_emoji(digit))
+
+        # Last check after all this, you must be a contributor
+        if not contributor_roles_set & user_roles:  # No intersection
+            logging.debug(
+                f"User {message.author} has none of the contributor roles {contributor_roles_set} not in {user_roles}, disabling auto-upload"
+            )
+            await message.add_reaction("📋")
+            _is_auto_upload = False
 
         elif _is_auto_upload:  # If we're good to auto upload.
             # Add a gem! Its time to upload this new image
