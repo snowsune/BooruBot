@@ -22,3 +22,7 @@ Forked booru functions away from Fops-Bot! Woo!
 ## Changelog 4
 
 - Feature: including the text 'nopost' will skip the bot from uploading!
+
+## Chaneglog 5
+
+- Change: Bot requires a new env `CONTRIBUTOR_ROLES` and you must have this role to auto-upload!
