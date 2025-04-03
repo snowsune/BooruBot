@@ -83,6 +83,11 @@ class TagModal(discord.ui.Modal, title="Enter Tags"):
         self.attachment = attachment
         self.message = message
 
+        # Configure options and secrets
+        self.api_key = os.environ.get("BOORU_KEY", "")
+        self.api_user = os.environ.get("BOORU_USER", "")
+        self.api_url = os.environ.get("BOORU_URL", "")
+
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
@@ -110,22 +115,11 @@ class TagModal(discord.ui.Modal, title="Enter Tags"):
                 rating,
             )
 
-            # if post_id != None:
-            #     await self.message.add_reaction("⬆")
+            if post_id != None:
+                await self.message.add_reaction("⬆")
 
-            #     for num in number_to_words(post_id):
-            #         await self.message.add_reaction(num)
-
-            #     await interaction.followup.send(
-            #         f"Success!\nImage has been uploaded as {api_url}/posts/{post_id}",
-            #         ephemeral=True,
-            #     )
-            # else:  # Image must have already been posted
-            #     await self.message.add_reaction("white_check_mark")
-            #     await interaction.followup.send(
-            #         f"Looks like this image has already been tracked!",
-            #         ephemeral=True,
-            #     )
+            else:  # Image must have already been posted
+                await self.message.add_reaction("white_check_mark")
 
 
 class BooruUploads(commands.Cog, name="BooruCog"):
