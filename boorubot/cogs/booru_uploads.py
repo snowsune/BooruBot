@@ -236,10 +236,11 @@ class BooruUploads(commands.Cog, name="BooruCog"):
         # Check if a valid number was returned
         if post_id is not None and isinstance(post_id, int):
             post_id_str = str(post_id)
+            _is_auto_upload = False
 
             # Check for duplicate digits
             if self.has_duplicates(post_id_str):
-                logging.warn(f"Duplicated digits for post {post_id_str}")
+                logging.warning(f"Duplicated digits for post {post_id_str}")
                 await message.add_reaction("🔢")
             else:
                 logging.info(f"Getting digits for {post_id_str}")
@@ -248,9 +249,8 @@ class BooruUploads(commands.Cog, name="BooruCog"):
                     await message.add_reaction(self.get_emoji(digit))
 
         # Last check after all this, you must be a contributor
-        if (
-            str(message.channel.id) not in self.auto_upload_list
-        ):  # Messy but, need to check this too
+        # Messy but, need to check this too
+        if str(message.channel.id) not in self.auto_upload_list:
             if not contributor_roles_set & user_roles:  # No intersection
                 logging.debug(
                     f"User {message.author} has none of the contributor roles {contributor_roles_set} not in {user_roles}, disabling auto-upload"
