@@ -189,6 +189,12 @@ class BooruUploads(commands.Cog, name="BooruCog"):
         if message.author.bot:
             return
 
+        # Check for contributor status first - this should happen for all channels
+        contributor_roles = os.getenv("CONTRIBUTOR_ROLES", "")
+        contributor_roles_set = set(contributor_roles.split(","))
+        user_roles = {str(role.id) for role in message.author.roles}
+        is_contributor = bool(contributor_roles_set & user_roles)
+
         # Default we will upload unless something turns it off.
         _is_auto_upload = True
 
@@ -198,12 +204,8 @@ class BooruUploads(commands.Cog, name="BooruCog"):
                 f"Not uploading image in {message.channel.id}, not in list {self.auto_upload_list}"
             )
             _is_auto_upload = False
-
-        # Check for contributor status
-        contributor_roles = os.getenv("CONTRIBUTOR_ROLES", "")
-        contributor_roles_set = set(contributor_roles.split(","))
-
-        user_roles = {str(role.id) for role in message.author.roles}
+            # For non-auto-upload channels, we only care about iqdb matching
+            # No need to check contributor status or add no_entry reaction
 
         # Handle attachments
         if message.attachments and message.attachments[0].content_type.startswith(
@@ -249,16 +251,13 @@ class BooruUploads(commands.Cog, name="BooruCog"):
                     await message.add_reaction(self.get_emoji(digit))
 
         # Last check after all this, you must be a contributor
-        # Messy but, need to check this too
-        if str(message.channel.id) not in self.auto_upload_list:
-            if not contributor_roles_set & user_roles:  # No intersection
-                logging.debug(
-                    f"User {message.author} has none of the contributor roles {contributor_roles_set} not in {user_roles}, disabling auto-upload"
-                )
-                await message.add_reaction("🚫")
-                _is_auto_upload = False
+        if not is_contributor:
+            logging.debug(
+                f"User {message.author} has none of the contributor roles {contributor_roles_set} not in {user_roles}, disabling auto-upload"
+            )
+            _is_auto_upload = False
 
-        elif _is_auto_upload:  # If we're good to auto upload.
+        if _is_auto_upload:  # If we're good to auto upload.
             # Add a gem! Its time to upload this new image
             await message.add_reaction("💎")
 
