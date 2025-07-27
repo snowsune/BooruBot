@@ -252,7 +252,7 @@ class BooruUploads(commands.Cog, name="BooruCog"):
 
         # Last check after all this, you must be a contributor
         if not is_contributor:
-            logging.debug(
+            logging.info(
                 f"User {message.author} has none of the contributor roles {contributor_roles_set} not in {user_roles}, disabling auto-upload"
             )
             _is_auto_upload = False
@@ -378,8 +378,8 @@ class BooruUploads(commands.Cog, name="BooruCog"):
     )
     @app_commands.describe(tags="Like `cute canine outdoors`")
     async def random(self, interaction: discord.Interaction, tags: str):
-        # Skip if not NSFW!
-        if not interaction.channel.nsfw:
+        # Skip if not NSFW! (safely check for nsfw attribute)
+        if hasattr(interaction.channel, "nsfw") and not interaction.channel.nsfw:
             return
 
         # Default tags to exclude unless explicitly included
@@ -444,7 +444,7 @@ class BooruUploads(commands.Cog, name="BooruCog"):
         user: str,
         tags: str = "",
     ):
-        if not interaction.channel.nsfw:
+        if hasattr(interaction.channel, "nsfw") and not interaction.channel.nsfw:
             return
 
         # Default tags to exclude unless explicitly included
