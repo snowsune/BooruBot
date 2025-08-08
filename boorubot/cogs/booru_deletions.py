@@ -98,19 +98,21 @@ class BooruDeletions(commands.Cog, name="BooruDeletionsCog"):
         for tag, reason in self.deletion_list.items():
             logging.info(f"Checking for posts with tag '{tag}' for deletion.")
 
-            # Fetch posts with the specified tag
+            # Fetch posts with the specified tag - use a high limit to get all posts
             posts_to_check = booru_scripts.fetch_images_with_tag(
                 tag,
                 self.api_url,
                 self.api_key,
                 self.api_user,
-                limit=50,  # Check up to 50 posts at a time
+                limit=1000,  # High limit to get all posts
                 random=False,
             )
 
             if not posts_to_check:
                 logging.debug(f"No posts found with tag '{tag}'.")
                 continue
+
+            logging.info(f"Found {len(posts_to_check)} posts with tag '{tag}'.")
 
             for post in posts_to_check:
                 post_id = post["id"]
@@ -121,7 +123,6 @@ class BooruDeletions(commands.Cog, name="BooruDeletionsCog"):
                 )
 
                 # Attempt to delete the post
-                # Note: This may fail with 403 "Access denied" if the bot doesn't have admin permissions
                 success = booru_scripts.delete_post(
                     post_id, self.api_url, self.api_key, self.api_user, reason=reason
                 )
@@ -132,8 +133,6 @@ class BooruDeletions(commands.Cog, name="BooruDeletionsCog"):
                     )
                     logging.info(f"Successfully deleted post {post_id}")
                 else:
-                    # Since delete_post returns False on any failure, we'll categorize based on common patterns
-                    # The actual error details are already logged by the delete_post function
                     failed_deletions.append(
                         f"Failed to delete <{post_url}> (tag: `{tag}`, reason: {reason})"
                     )
