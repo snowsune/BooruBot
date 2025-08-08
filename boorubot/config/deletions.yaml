@@ -1,0 +1,6 @@
+# BooruBot Deletion Configuration
+# This file contains the list of tags to automatically delete and their reasons
+
+deletions:
+  # Tag : Reason for deletion
+  "fayanna": "Character requested removal."
