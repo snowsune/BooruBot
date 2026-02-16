@@ -1,5 +1,6 @@
 import os
-import imp
+import json
+import importlib.util
 import discord
 import logging
 import aiohttp
@@ -15,9 +16,11 @@ from saucenao_api.errors import SauceNaoApiError
 
 from utilities.database import retrieve_key, store_key
 
-booru_scripts = imp.load_source(
-    "booru_scripts", "boorubot/scripts/Booru_Scripts/booru_utils.py"
-)
+# Load booru_scripts module using importlib
+_script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts", "Booru_Scripts", "booru_utils.py")
+spec = importlib.util.spec_from_file_location("booru_scripts", _script_path)
+booru_scripts = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(booru_scripts)
 
 
 class BackgroundBooru(commands.Cog, name="BooruBackgroundCog"):
@@ -37,6 +40,7 @@ class BackgroundBooru(commands.Cog, name="BooruBackgroundCog"):
         _booru_channels = str(os.environ.get("BOORU_AUTO_UPLOAD")).split(",")
         self.fav_ch = _booru_channels[0]  # First channel in list is where favs go
         self.maintenance_channel_id = str(os.environ.get("BOORU_MAINTENANCE"))
+        self.alert_channel_id = str(os.environ.get("ALERT_CHAN_ID", ""))
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -44,6 +48,7 @@ class BackgroundBooru(commands.Cog, name="BooruBackgroundCog"):
         self.update_status.start()
         self.check_new_comments.start()
         self.check_and_report_posts.start()
+        self.check_modqueue.start()
 
     def check_reply(self, message):
         try:
@@ -247,7 +252,7 @@ class BackgroundBooru(commands.Cog, name="BooruBackgroundCog"):
     async def check_new_comments(self):
         channel = self.bot.get_channel(int(self.fav_ch))
         if not channel:
-            logging.warn(f"Could not find auto upload channel in guild {guild_id}.")
+            logging.warn(f"Could not find auto upload channel {self.fav_ch}")
             return
 
         last_comment_id = retrieve_key("last_comment_id", 0) or 0
@@ -341,6 +346,100 @@ class BackgroundBooru(commands.Cog, name="BooruBackgroundCog"):
             await channel.send(f"Fixed some regular maintenance things:\n\n{report}")
         else:
             logging.info("No changes made during this check.")
+
+    @tasks.loop(minutes=5)
+    async def check_modqueue(self):
+        """
+        Check for new posts in the modqueue and alert on them.
+        Runs every 5 minutes.
+        """
+        logging.info("Running modqueue check...")
+
+        # Get channel to post to
+        if not self.maintenance_channel_id:
+            logging.warning("BOORU_MAINTENANCE not set, skipping modqueue check")
+            return
+
+        maintenance_channel = self.bot.get_channel(int(self.maintenance_channel_id))
+        if not maintenance_channel:
+            logging.warning(f"Could not find maintenance channel {self.maintenance_channel_id}")
+            return
+
+        # Fetch pending posts from modqueue
+        try:
+            pending_posts = booru_scripts.fetch_images_with_tag(
+                "status:pending",
+                self.api_url,
+                self.api_key,
+                self.api_user,
+                limit=100,  # Get up to 100 pending posts
+                random=False,
+            )
+            
+            logging.info(f"Found {len(pending_posts)} pending posts in modqueue")
+            
+            # Debug: log all pending post IDs
+            if pending_posts:
+                post_ids = [post["id"] for post in pending_posts]
+                logging.info(f"Pending post IDs: {post_ids}")
+            else:
+                logging.info("No pending posts found")
+                return
+
+            # Get the last modqueue ID we've already sent
+            last_sent_id = retrieve_key("last_modqueue_id_sent", 0) or 0
+            # Ensure it's an integer
+            try:
+                last_sent_id = int(last_sent_id)
+            except (ValueError, TypeError):
+                last_sent_id = 0
+            logging.info(f"Last modqueue ID sent: {last_sent_id}")
+
+            # Filter to only posts newer than the last one we sent
+            # Sort by ID ascending to process oldest first
+            new_posts = [
+                post for post in pending_posts 
+                if post["id"] > last_sent_id
+            ]
+            new_posts.sort(key=lambda x: x["id"])
+
+            logging.info(f"Found {len(new_posts)} new pending posts (IDs > {last_sent_id})")
+
+            # Alert on new posts
+            if new_posts:
+                highest_id = last_sent_id
+                for post in new_posts:
+                    post_id = post["id"]
+                    post_url = f"{self.api_url}/posts/{post_id}"
+                    
+                    # Get post details for better logging
+                    tags = post.get("tag_string", "no tags")
+                    creator_id = post.get("uploader_id", "unknown")
+                    
+                    logging.info(
+                        f"Alerting on new modqueue post {post_id} "
+                        f"(tags: {tags}, creator: {creator_id})"
+                    )
+                    
+                    await maintenance_channel.send(
+                        f"**New post in modqueue:**\n"
+                        f"Post ID: {post_id}\n"
+                        f"Tags: {tags}\n"
+                        f"Link: {post_url}"
+                    )
+                    
+                    # Track the highest ID we've sent
+                    if post_id > highest_id:
+                        highest_id = post_id
+
+                # Update the last sent ID to the highest one we just sent
+                store_key("last_modqueue_id_sent", highest_id)
+                logging.info(f"Updated last_modqueue_id_sent to {highest_id}")
+            else:
+                logging.debug(f"No new pending posts to alert on (all IDs <= {last_sent_id})")
+
+        except Exception as e:
+            logging.error(f"Error checking modqueue: {e}", exc_info=True)
 
 
 async def setup(bot):

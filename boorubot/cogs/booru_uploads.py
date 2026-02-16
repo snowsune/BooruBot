@@ -4,7 +4,7 @@
 
 import os
 import re
-import imp
+import importlib.util
 import random
 import discord
 import logging
@@ -21,9 +21,11 @@ from saucenao_api.errors import SauceNaoApiError
 
 from utilities.database import retrieve_key, store_key
 
-booru_scripts = imp.load_source(
-    "booru_scripts", "boorubot/scripts/Booru_Scripts/booru_utils.py"
-)
+# Load booru_scripts module using importlib
+_script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts", "Booru_Scripts", "booru_utils.py")
+spec = importlib.util.spec_from_file_location("booru_scripts", _script_path)
+booru_scripts = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(booru_scripts)
 
 
 # Helper function to detect and download image from URL

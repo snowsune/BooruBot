@@ -1,5 +1,3 @@
-# See here https://hub.docker.com/r/gorialis/discord.py/
-#FROM gorialis/discord.py
 FROM python:3.10-slim
 
 # Authors

@@ -50,7 +50,15 @@ class BooruBot:
         self.debug = str(os.environ.get("DEBUG")).lower() in ("true", "1", "t")
 
         # Append our workdir to the path (for importing modules)
-        self.workdir = "/app/boorubot/"
+        # Try Docker path first, then fall back to local development path
+        docker_workdir = "/app/boorubot/"
+        local_workdir = os.path.dirname(__file__) + "/"  # boorubot/ directory
+        
+        if os.path.exists(docker_workdir):
+            self.workdir = docker_workdir
+        else:
+            self.workdir = local_workdir
+        
         sys.path.append(self.workdir)
 
         # Setup logging.
@@ -85,7 +93,18 @@ class BooruBot:
     async def load_cogs(self):
         # Cog Loader!
         logging.info("Loading cogs...")
-        for filename in os.listdir(self.workdir + "cogs"):
+        
+        # Try absolute path first, then fall back to relative path
+        cogs_path = os.path.join(self.workdir, "cogs")
+        if not os.path.exists(cogs_path):
+            # Try relative path from current working directory
+            cogs_path = os.path.join(os.path.dirname(__file__), "cogs")
+            if not os.path.exists(cogs_path):
+                logging.error(f"Could not find cogs directory at {os.path.join(self.workdir, 'cogs')} or {cogs_path}")
+                return
+        
+        logging.info(f"Loading cogs from: {cogs_path}")
+        for filename in os.listdir(cogs_path):
             logging.info(f"Found file {filename}, loading as extension.")
             if filename.endswith(".py") and not filename.startswith("_"):
                 try:

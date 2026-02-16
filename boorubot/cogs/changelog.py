@@ -40,11 +40,30 @@ class Changelog(commands.Cog, name="ChangeLogCog"):
     async def on_ready(self):
         self.last_log = retrieve_key("LAST_CHANGELOG", 0)
 
-        changelog_path = "/app/README.md"
+        # Try Docker path first, then fall back to local development path
+        docker_changelog_path = "/app/README.md"
+        # Try to find README.md relative to the project root
+        local_changelog_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "README.md"
+        )
+        
+        if os.path.exists(docker_changelog_path):
+            changelog_path = docker_changelog_path
+        elif os.path.exists(local_changelog_path):
+            changelog_path = local_changelog_path
+        else:
+            logging.warning(
+                f"Could not find README.md at {docker_changelog_path} or {local_changelog_path}. Skipping changelog check."
+            )
+            return
 
         # Crack the data we need
         logging.info(f"Loading {changelog_path}")
         _d = get_current_changelog(changelog_path)
+        if _d[0] is None or _d[1] is None:
+            logging.warning("No changelog found in README.md")
+            return
+        
         cur_lognum = int(_d[0])
         cur_logstr = _d[1]
 
@@ -61,12 +80,12 @@ class Changelog(commands.Cog, name="ChangeLogCog"):
         # For boorubot, i'll just read a single changelog channel from maintenance
         ch_id = str(os.environ.get("BOORU_MAINTENANCE"))
         if not ch_id:
-            logging.warning(f"No channel set for changelog alerts in guild {guild_id}")
+            logging.warning("No channel set for changelog alerts (BOORU_MAINTENANCE not set)")
             return
 
         channel = self.bot.get_channel(int(ch_id))
         if not channel:
-            logging.warning(f"Could not find channel {ch_id} in guild {guild_id}")
+            logging.warning(f"Could not find channel {ch_id}")
             return
 
         # Replace any placeholders in the changelog text

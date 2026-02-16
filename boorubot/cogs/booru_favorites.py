@@ -1,5 +1,5 @@
 import os
-import imp
+import importlib.util
 import discord
 import logging
 import asyncio
@@ -9,11 +9,11 @@ from discord.ext import commands, tasks
 
 from utilities.database import retrieve_key, store_key
 
-
-# Load booru utility functions
-booru_scripts = imp.load_source(
-    "booru_scripts", "boorubot/scripts/Booru_Scripts/booru_utils.py"
-)
+# Load booru utility functions using importlib
+_script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts", "Booru_Scripts", "booru_utils.py")
+spec = importlib.util.spec_from_file_location("booru_scripts", _script_path)
+booru_scripts = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(booru_scripts)
 
 
 class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
