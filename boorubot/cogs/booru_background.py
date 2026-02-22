@@ -41,6 +41,7 @@ class BackgroundBooru(commands.Cog, name="BooruBackgroundCog"):
         self.fav_ch = _booru_channels[0]  # First channel in list is where favs go
         self.maintenance_channel_id = str(os.environ.get("BOORU_MAINTENANCE"))
         self.alert_channel_id = str(os.environ.get("ALERT_CHAN_ID", ""))
+        self.tag_help_thread_id = str(os.environ.get("TAG_HELP_THREAD", ""))
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -207,7 +208,17 @@ class BackgroundBooru(commands.Cog, name="BooruBackgroundCog"):
         if not maintenance_channel_id:
             return
 
-        channel = self.bot.get_channel(int(maintenance_channel_id))
+        # Prefer TAG_HELP_THREAD if set (reduces spam in maintenance channel)
+        if self.tag_help_thread_id:
+            channel = self.bot.get_channel(int(self.tag_help_thread_id))
+            if not channel:
+                logging.warn(
+                    f"Could not find tag help thread {self.tag_help_thread_id}, falling back to maintenance channel."
+                )
+                channel = self.bot.get_channel(int(maintenance_channel_id))
+        else:
+            channel = self.bot.get_channel(int(maintenance_channel_id))
+
         if not channel:
             logging.warn(
                 f"Could not find maintenance channel {maintenance_channel_id}."
