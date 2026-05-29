@@ -47,8 +47,9 @@ def retrieve_key(key, default=None):
 
     # If key empty/missing
     if not result:
-        store_key(key, default)
-        logging.warning(f"Inserting default {default} into key {key}")
+        if default is not None:
+            store_key(key, default)
+            logging.warning(f"Inserting default {default} into key {key}")
         return default
 
     # otherwise return key
