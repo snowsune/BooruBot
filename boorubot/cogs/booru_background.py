@@ -63,13 +63,18 @@ class BackgroundBooru(commands.Cog, name="BooruBackgroundCog"):
             if referenced_message.author.id != self.bot.user.id:
                 logging.debug("Referenced message is not the bot user")
                 return False
+            content = referenced_message.content
+            if "added a new favorite" in content:
+                logging.debug("Reply to fav notification, skipping tag apply")
+                return False
             # Check if the message starts with a valid post ID (assuming it's a number)
             try:
-                post_id = int(referenced_message.content.split()[0])
+                post_id = int(content.split()[0])
                 return True
             except ValueError:
+                first_token = content.split()[0] if content.split() else content
                 logging.warning(
-                    f"Couldn't translate the first portion of message into an ID, issue was {int(referenced_message.content.split()[0])}"
+                    f"Couldn't translate the first portion of message into an ID, was {first_token!r}"
                 )
                 return False
         except IndexError as e:

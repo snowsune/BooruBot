@@ -42,27 +42,32 @@ class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.check_new_favorites.start()
+        if not self.check_new_favorites.is_running():
+            self.check_new_favorites.start()
 
     @tasks.loop(minutes=2)  # Runs one at a time every 2 mins! Will do all three in 6min ish
     async def check_new_favorites(self):
-        channel_key, channel_id, exclude_pattern = self._fav_channel_configs[
+        channel_key, _, exclude_pattern = self._fav_channel_configs[
             self._fav_channel_rotate % len(self._fav_channel_configs)
         ]
         self._fav_channel_rotate += 1
 
+        channel_id = retrieve_key(channel_key, None)
         if channel_id is None:
             logging.debug(f"Skipping fav check for {channel_key}, channel not configured")
             return
 
-        logging.debug(
+        logging.info(
             f"Checking favorites for {channel_key} ({channel_id}) with exclude pattern {exclude_pattern}"
         )
 
         channel = self.bot.get_channel(int(channel_id))
-        if not channel:
-            logging.warning(f"Could not find favorites channel {channel_id}.")
-            return
+        if channel is None:
+            try:
+                channel = await self.bot.fetch_channel(int(channel_id))
+            except discord.HTTPException as e:
+                logging.warning(f"Could not find favorites channel {channel_id}: {e}")
+                return
 
         users_with_favs = booru_scripts.fetch_usernames_with_favs(
             self.api_url,
@@ -87,8 +92,14 @@ class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
             if not latest_favs:
                 continue  # If no favorites were fetched, move on to the next user
 
-            # Get the last favorite we saw
-            last_fav = retrieve_key(f"{channel.name}_fav_{username}", default=None)
+            # Get the last favorite we saw (keyed by channel config, not channel name)
+            db_key = f"{channel_key}_fav_{username}"
+            last_fav = retrieve_key(db_key, default=None)
+            if last_fav is None:
+                # Migrate from older keys that used channel.name
+                last_fav = retrieve_key(f"{channel.name}_fav_{username}", default=None)
+                if last_fav is not None:
+                    store_key(db_key, last_fav)
 
             # If no last_fav exists, we will assume it's the user's first time being tracked
             if last_fav is None:
@@ -97,7 +108,7 @@ class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
                 )
 
                 # Store the most recent favorite as the last seen favorite
-                store_key(f"{channel.name}_fav_{username}", latest_favs[0])
+                store_key(db_key, latest_favs[0])
                 continue  # Move to the next user
 
             # Find the position of last_fav in the latest_favs list
@@ -112,12 +123,13 @@ class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
                     latest_favs
                 ):  # reverse to post from the oldest first
                     post_url = f"{self.api_url}/posts/{fav_id}"
+                    logging.info(f"Posting fav {fav_id} from {username} to {channel_key}")
                     await channel.send(
                         f"**{username}** added a new favorite!\n{post_url}"
                     )
 
                 # Update the last_fav to the newest favorite
-                store_key(f"{channel.name}_fav_{username}", latest_favs[0])
+                store_key(db_key, latest_favs[0])
                 continue  # Move to the next user after posting
 
             # If last_fav is found, post only the favorites after it
@@ -129,14 +141,19 @@ class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
                     new_favs
                 ):  # reverse to post from the oldest first
                     post_url = f"{self.api_url}/posts/{fav_id}"
+                    logging.info(f"Posting fav {fav_id} from {username} to {channel_key}")
                     await channel.send(
                         f"**{username}** added a new favorite!\n{post_url}"
                     )
 
                 # Update the last_fav to the newest favorite
-                store_key(f"{channel.name}_fav_{username}", new_favs[0])
+                store_key(db_key, new_favs[0])
 
             await asyncio.sleep(0)
+
+    @check_new_favorites.before_loop
+    async def before_check_new_favorites(self):
+        await self.bot.wait_until_ready()
 
     @app_commands.command(
         name="set_sfw_fav_channel",
