@@ -29,9 +29,10 @@ class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
         self.vore_fav_ch = retrieve_key("vore_fav_ch", None)  # Channel for vore favs
 
         # Exclude patterns
-        self.fav_ch_exclude = "-vore -gore -scat -watersports -irl"
-        self.sfw_fav_ch_exclude = f"-rating:explicit -rating:questionable {self.fav_ch_exclude}"
-        self.vore_fav_ch_exclude = self.fav_ch_exclude.replace("-vore", "vore")
+        self.base_exclude = "-vore -gore -scat -watersports -irl"
+        self.fav_ch_exclude = f"{self.base_exclude} -rating:general"
+        self.sfw_fav_ch_exclude = f"rating:general {self.base_exclude}"
+        self.vore_fav_ch_exclude = f"vore {self.base_exclude}"
 
         self._fav_channel_configs = [
             ("fav_ch", self.fav_ch, self.fav_ch_exclude),
@@ -163,7 +164,11 @@ class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
     async def set_sfw_fav_channel(self, interaction: discord.Interaction):
         store_key("sfw_fav_ch", interaction.channel_id) # Set DB
         self.sfw_fav_ch = interaction.channel_id # Update now too
-        self._fav_channel_configs[1] = ("sfw_fav_ch", self.sfw_fav_ch, self.sfw_fav_ch_exclude)
+        self._fav_channel_configs[1] = (
+            "sfw_fav_ch",
+            self.sfw_fav_ch,
+            f"rating:general {self.base_exclude}",
+        )
 
         await interaction.response.send_message(
             f"Set SFW Fav Channel to {interaction.channel.mention}!"
@@ -177,7 +182,11 @@ class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
     async def set_fav_channel(self, interaction: discord.Interaction):
         store_key("fav_ch", interaction.channel_id) # Set DB
         self.fav_ch = interaction.channel_id # Update now too
-        self._fav_channel_configs[0] = ("fav_ch", self.fav_ch, self.fav_ch_exclude)
+        self._fav_channel_configs[0] = (
+            "fav_ch",
+            self.fav_ch,
+            f"{self.base_exclude} -rating:general",
+        )
 
         await interaction.response.send_message(
             f"Set Fav Channel to {interaction.channel.mention}!"
@@ -191,7 +200,11 @@ class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
     async def set_vore_fav_channel(self, interaction: discord.Interaction):
         store_key("vore_fav_ch", interaction.channel_id)
         self.vore_fav_ch = interaction.channel_id # Update now too
-        self._fav_channel_configs[2] = ("vore_fav_ch", self.vore_fav_ch, self.vore_fav_ch_exclude)
+        self._fav_channel_configs[2] = (
+            "vore_fav_ch",
+            self.vore_fav_ch,
+            f"vore {self.base_exclude}",
+        )
 
         await interaction.response.send_message(
             f"Set Vore Fav Channel to {interaction.channel.mention}!"
