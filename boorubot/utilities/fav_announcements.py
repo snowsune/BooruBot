@@ -1,7 +1,7 @@
 import logging
 import re
 
-FAV_HISTORY_LIMIT = 10
+FAV_HISTORY_LIMIT = 20
 
 
 def parse_fav_message(content):
