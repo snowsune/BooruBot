@@ -8,6 +8,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from utilities.database import retrieve_key, store_key
+from utilities.fav_announcements import announce_fav
 
 # Load booru utility functions using importlib
 _script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts", "Booru_Scripts", "booru_utils.py")
@@ -155,10 +156,13 @@ class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
                 for fav_id in reversed(
                     new_favs
                 ):  # reverse to post from the oldest first
-                    post_url = f"{self.api_url}/posts/{fav_id}"
                     logging.info(f"Posting fav {fav_id} from {username} to {channel_key}")
-                    await channel.send(
-                        f"**{username}** added a new favorite!\n{post_url}"
+                    await announce_fav(
+                        channel,
+                        self.bot.user.id,
+                        self.api_url,
+                        username,
+                        fav_id,
                     )
 
                 store_key(db_key, _save_seen_favs(latest_favs))
