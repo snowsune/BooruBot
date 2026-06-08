@@ -15,6 +15,31 @@ spec = importlib.util.spec_from_file_location("booru_scripts", _script_path)
 booru_scripts = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(booru_scripts)
 
+FAV_TRACK_LIMIT = 3
+
+
+def _load_seen_favs(value):
+    """Unpacks seen favs"""
+    if value is None:
+        return []
+    return [int(x) for x in str(value).split(",") if x.strip()]
+
+
+def _save_seen_favs(fav_ids):
+    """Packs seen favs"""
+    return ",".join(str(fav_id) for fav_id in fav_ids[:FAV_TRACK_LIMIT])
+
+
+def _new_favs_since_seen(latest_favs, seen_favs):
+    """Newest-first IDs in latest that aren't in our tracked set, until we hit a known one."""
+    seen_set = set(seen_favs)
+    new_favs = []
+    for fav_id in latest_favs:
+        if fav_id in seen_set:
+            break
+        new_favs.append(fav_id)
+    return new_favs
+
 
 class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
     def __init__(self, bot):
@@ -93,51 +118,40 @@ class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
             if not latest_favs:
                 continue  # If no favorites were fetched, move on to the next user
 
-            # Get the last favorite we saw (keyed by channel config, not channel name)
+            # Get the last favorites we saw
             db_key = f"{channel_key}_fav_{username}"
-            last_fav = retrieve_key(db_key, default=None)
-            if last_fav is None:
-                # Migrate from older keys that used channel.name
-                last_fav = retrieve_key(f"{channel.name}_fav_{username}", default=None)
-                if last_fav is not None:
-                    store_key(db_key, last_fav)
+            seen_favs = _load_seen_favs(retrieve_key(db_key, default=None))
+            if not seen_favs:
+                # Its probably an old key so, migrate by doing this
+                seen_favs = _load_seen_favs(
+                    retrieve_key(f"{channel.name}_fav_{username}", default=None)
+                )
+                if seen_favs:
+                    store_key(db_key, _save_seen_favs(seen_favs))
 
-            # If no last_fav exists, we will assume it's the user's first time being tracked
-            if last_fav is None:
+            # If no history exists, its prolly the user's first time being tracked
+            if not seen_favs:
                 logging.info(
-                    f"Tracking new favs for user {username} starting at {latest_favs[0]}"
+                    f"Tracking new favs for user {username} in {channel_key} starting at {latest_favs}"
                 )
 
-                # Store the most recent favorite as the last seen favorite
-                store_key(db_key, latest_favs[0])
+                # Store the most recent favorites as the last seen set
+                store_key(db_key, _save_seen_favs(latest_favs))
                 continue  # Move to the next user
 
-            # Find the position of last_fav in the latest_favs list
-            try:
-                last_fav_index = latest_favs.index(int(last_fav))
-            except ValueError:
+            new_favs = _new_favs_since_seen(latest_favs, seen_favs)
+
+            if new_favs and not set(seen_favs) & set(latest_favs):
+                # If nothing in common, bad shift
                 logging.warning(
-                    f"For user {username} found more than 10 unposted favs!"
+                    f"Fav list reshuffled for {username} in {channel_key}: "
+                    f"was {seen_favs}, now {latest_favs}"
                 )
-                # If last_fav is not in the list, post all 10 starting from the oldest
-                for fav_id in reversed(
-                    latest_favs
-                ):  # reverse to post from the oldest first
-                    post_url = f"{self.api_url}/posts/{fav_id}"
-                    logging.info(f"Posting fav {fav_id} from {username} to {channel_key}")
-                    await channel.send(
-                        f"**{username}** added a new favorite!\n{post_url}"
-                    )
+                store_key(db_key, _save_seen_favs(latest_favs))
+                continue
 
-                # Update the last_fav to the newest favorite
-                store_key(db_key, latest_favs[0])
-                continue  # Move to the next user after posting
-
-            # If last_fav is found, post only the favorites after it
-            new_favs = latest_favs[
-                :last_fav_index
-            ]  # Only the ones more recent than last_fav
             if new_favs:
+                # Post only actual new favorites at the head of the list
                 for fav_id in reversed(
                     new_favs
                 ):  # reverse to post from the oldest first
@@ -147,8 +161,14 @@ class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
                         f"**{username}** added a new favorite!\n{post_url}"
                     )
 
-                # Update the last_fav to the newest favorite
-                store_key(db_key, new_favs[0])
+                store_key(db_key, _save_seen_favs(latest_favs))
+            elif latest_favs != seen_favs[: len(latest_favs)]:
+                # Head dropped off (unfav or re-tag)
+                logging.warning(
+                    f"Fav list rollback for {username} in {channel_key}: "
+                    f"was {seen_favs}, now {latest_favs}"
+                )
+                store_key(db_key, _save_seen_favs(latest_favs))
 
             await asyncio.sleep(0)
 
