@@ -230,18 +230,8 @@ class BooruUploads(commands.Cog, name="BooruCog"):
 
         # Check if a valid number was returned
         if post_id is not None and isinstance(post_id, int):
-            post_id_str = str(post_id)
             _is_auto_upload = False
-
-            # Check for duplicate digits
-            if self.has_duplicates(post_id_str):
-                logging.warning(f"Duplicated digits for post {post_id_str}")
-                await message.add_reaction("🔢")
-            else:
-                logging.info(f"Getting digits for {post_id_str}")
-                for digit in post_id_str:
-                    # React with the corresponding emoji
-                    await message.add_reaction(self.get_emoji(digit))
+            await self._react_post_id(message, post_id)
 
         # Last check after all this, you must be a contributor
         if not is_contributor:
@@ -276,7 +266,9 @@ class BooruUploads(commands.Cog, name="BooruCog"):
                 self.api_url,
                 file_path,  # <- Same path as earlier
             )
-            if upload_id:
+            if not upload_id:
+                logging.error(f"Failed to upload image from {attachment_url}")
+            else:
                 post_id = booru_scripts.create_post(
                     self.api_key,
                     self.api_user,
@@ -287,33 +279,28 @@ class BooruUploads(commands.Cog, name="BooruCog"):
                     description=description,  # Pass the description here
                 )
 
-                post_id_str = str(post_id)
-
-                # Check for duplicate digits
-                if self.has_duplicates(post_id_str):
-                    logging.warn(f"Duplicated digits for post {post_id_str}")
-                    await message.add_reaction("🔢")
-                else:
-                    for digit in post_id_str:
-                        # React with the corresponding emoji
-                        await message.add_reaction(self.get_emoji(digit))
-                # TODO: Move to shared func
-
-                # SauceNAO integration
-                logging.debug("Fetching sauce info")
-                sauce_info = await self.get_sauce_info(attachment_url)
-                if sauce_info["source"]:
-                    confirmation_message = await message.reply(
-                        f"Found author: `{sauce_info['author']}` and source: <{sauce_info['source']}> for post `{post_id}` via SauceNAO.\n"
-                        f"Please react with ✅ to confirm or ❌ if incorrect!"
+                if post_id is None:
+                    logging.error(
+                        f"Uploaded asset {upload_id} but failed to create post for {attachment_url}"
                     )
-
-                    await confirmation_message.add_reaction("✅")
-                    await confirmation_message.add_reaction("❌")
                 else:
-                    logging.warning(
-                        f"SauceNAO couldn't find source for {attachment_url}"
-                    )
+                    await self._react_post_id(message, post_id)
+
+                    # SauceNAO integration
+                    logging.debug("Fetching sauce info")
+                    sauce_info = await self.get_sauce_info(attachment_url)
+                    if sauce_info["source"]:
+                        confirmation_message = await message.reply(
+                            f"Found author: `{sauce_info['author']}` and source: <{sauce_info['source']}> for post `{post_id}` via SauceNAO.\n"
+                            f"Please react with ✅ to confirm or ❌ if incorrect!"
+                        )
+
+                        await confirmation_message.add_reaction("✅")
+                        await confirmation_message.add_reaction("❌")
+                    else:
+                        logging.warning(
+                            f"SauceNAO couldn't find source for {attachment_url}"
+                        )
         else:
             # Nothing to do, image was unique, but was not in an auto upload channel
             return
@@ -324,6 +311,22 @@ class BooruUploads(commands.Cog, name="BooruCog"):
 
         # Clean up the download
         os.remove(file_path)
+
+    async def _react_post_id(self, message, post_id):
+        try:
+            post_id = int(post_id)
+        except (TypeError, ValueError):
+            logging.error(f"Invalid post_id {post_id!r}, cannot react with digits")
+            return
+
+        post_id_str = str(post_id)
+        if self.has_duplicates(post_id_str):
+            logging.warning(f"Duplicated digits for post {post_id_str}")
+            await message.add_reaction("🔢")
+        else:
+            logging.info(f"Getting digits for {post_id_str}")
+            for digit in post_id_str:
+                await message.add_reaction(self.get_emoji(digit))
 
     def get_emoji(self, digit):
         # Map digit to corresponding emoji
