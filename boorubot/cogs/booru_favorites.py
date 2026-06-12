@@ -104,6 +104,7 @@ class FavoriteWatcher(commands.Cog, name="FavoriteWatcherCog"):
                 self.api_url,
                 username,
                 post_id,
+                tag_string,
             )
             posted = True
 
