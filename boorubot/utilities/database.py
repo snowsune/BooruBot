@@ -18,6 +18,10 @@ def getCur():
 def store_key(key, value):
     cur, conn = getCur()
 
+    # if in debug mode, prepend debug_ to key
+    if os.getenv("DEBUG", "False").lower() in ("true", "1", "yes"):
+        key = f"debug_{key}"
+
     cur.execute(
         """
     INSERT INTO key_value_store (key, value)
@@ -34,6 +38,10 @@ def store_key(key, value):
 
 def retrieve_key(key, default=None):
     cur, conn = getCur()
+
+    # if in debug mode, prepend debug_ to key
+    if os.getenv("DEBUG", "False").lower() in ("true", "1", "yes"):
+        key = f"debug_{key}"
 
     cur.execute(
         """

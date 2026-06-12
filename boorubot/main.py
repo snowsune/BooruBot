@@ -68,6 +68,15 @@ class BooruBot:
                 level=logging.DEBUG,
                 format="%(levelname)s:%(name)s: %(message)s",  # Include logger name in output
             )
+            for noisy_logger in (
+                "discord",
+                "discord.http",
+                "discord.gateway",
+                "discord.client",
+                "urllib3",
+                "asyncio",
+            ):
+                logging.getLogger(noisy_logger).setLevel(logging.INFO)
             logging.debug("Running in debug mode.")
         else:
             logging.basicConfig(

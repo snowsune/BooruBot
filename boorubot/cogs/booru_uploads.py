@@ -5,7 +5,6 @@
 import os
 import re
 import importlib.util
-import random
 import discord
 import logging
 import requests
@@ -128,10 +127,6 @@ class BooruUploads(commands.Cog, name="BooruCog"):
     def __init__(self, bot):
         self.bot = bot
 
-        # For /fav command
-        self.users_with_favs = ["Wait for bot to start..."]
-
-        #
         self.ctx_menu = app_commands.ContextMenu(
             name="Upload to BixiBooru",
             callback=self.grab_message_context,  # set the callback of the context menu to "grab_message_context"
@@ -152,11 +147,7 @@ class BooruUploads(commands.Cog, name="BooruCog"):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        # Commands
         await self.bot.tree.sync()
-
-        # Tasks
-        self.fetch_usernames_with_favs.start()
 
     async def grab_message_context(
         self, interaction: discord.Interaction, message: discord.Message
@@ -410,79 +401,6 @@ class BooruUploads(commands.Cog, name="BooruCog"):
         # Yeah i know the join and split tags thing is messy but go for it XD
         await interaction.response.send_message(
             f"{os.environ.get('BOORU_URL', '')}/posts/{image[0]['id']}?q={'+'.join(tags.split(' '))}"
-        )
-
-    @tasks.loop(minutes=15)
-    async def fetch_usernames_with_favs(self):
-        logging.info("Fetching usernames with favs...")
-        self.users_with_favs = booru_scripts.fetch_usernames_with_favs(
-            self.api_url, self.api_key, self.api_user, 100
-        )
-        logging.info(f"Fetched {len(self.users_with_favs)} users with favs")
-
-    # User autocompletion, useful for some things!
-    async def user_autocomplete(
-        self, interaction: discord.Interaction, current: str
-    ) -> list[app_commands.Choice[str]]:
-
-        return [
-            app_commands.Choice(name=_name, value=_name)
-            for _name in self.users_with_favs
-        ][:25]
-        # Discord limits to 25 choices
-
-    @app_commands.command(
-        name="fav",
-        description="Grab a favorite post from a user's fav list! Use the `tags` to filter!",
-    )
-    @app_commands.describe(tags="Like `vulpine outdoors`")
-    @app_commands.describe(
-        user="If you dont see your name listed, try favoriting something and waiting 15 minutes!`"
-    )
-    @app_commands.autocomplete(user=user_autocomplete)
-    async def fav(
-        self,
-        interaction: discord.Interaction,
-        user: str,
-        tags: str = "",
-    ):
-        if hasattr(interaction.channel, "nsfw") and not interaction.channel.nsfw:
-            return
-
-        # Default tags to exclude unless explicitly included
-        default_exclude = ["vore", "gore", "scat", "watersports", "loli", "shota"]
-
-        # Check if any of the default exclude tags are included in the user's tags
-        included_excludes = [tag for tag in default_exclude if tag in tags.split()]
-
-        # Exclude the default tags that are not explicitly included
-        exclude_tags = [tag for tag in default_exclude if tag not in included_excludes]
-
-        # Prepend 'ordfav:vixi' to the tags to search within your favorites
-        tags = f"ordfav:{user} {tags}"
-
-        images = booru_scripts.fetch_images_with_tag(
-            tags,
-            self.api_url,
-            self.api_key,
-            self.api_user,
-            limit=100,
-            random=False,
-            exclude=exclude_tags,  # Pass the exclude tags
-        )
-
-        if not images:
-            await interaction.response.send_message(f"No match for `{tags}`!")
-            return
-
-        # Randomize the list of fetched images
-        random.shuffle(images)
-
-        # Pick the first random image
-        selected_image = images[0]
-
-        await interaction.response.send_message(
-            f"{os.environ.get('BOORU_URL', '')}/posts/{selected_image['id']}?q={'+'.join(tags.split(' '))}"
         )
 
     # Sauce NAO Integration stuff
